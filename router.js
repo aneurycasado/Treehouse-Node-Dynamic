@@ -1,38 +1,50 @@
 var Profile = require("./profile.js");
-
+var renderer = require("./renderer.js");
+var querystring = require("querystring");
+var commonHeader = {'Content-Type': 'text/html'}
 
 function home(request,response){
-
     if(request.url === "/"){
-    response.writeHead(200, {'Content-Type': 'text/plain'});
-    response.write("Header\n");
-    response.write("Search\n");
-    response.end("Footer\n");
+      if(request.method.toLowerCase() == "get"){
+        response.writeHead(200, commonHeader);
+        renderer.view("header",{},response);
+        renderer.view("search",{},response);
+        renderer.view("footer",{},response);
+        response.end();
+      }else{
+        request.on("data", function(postBody){
+          var query = querystring.parse(postBody.toString())
+          response.writeHead(303,{"location": "/" + query.username});
+          response.end();
+        })
+      }
   }
 }
 
 function user(request,response){
   var username = request.url.replace("/","")
   if(username.length > 0){
-    response.writeHead(200, {'Content-Type': 'text/plain'});
-    response.write("Header\n");
+    response.writeHead(200, commonHeader);
+    renderer.view("header",{},response);
     var studentProfile = new Profile(username);
     studentProfile.on("end", function(profileJSON){
       var values = {
-        avatarUrl: profileJSON.gravater_url,
+        avatarUrl: profileJSON.gravatar_url,
         username: profileJSON.profile_name,
         badges: profileJSON.badges.length,
-        JavaScriptPoints: profileJSON.points.JavaScript
+        javascriptpoints: profileJSON.points.JavaScript
       }
-      response.write(values.username + "has " + values.badges + " badges\n")
-      response.end("Footer\n");
+      renderer.view("profile",values,response);
+      renderer.view("footer",{},response);
+      response.end();
 
     });
     studentProfile.on("error",function(error){
-      response.write(error.message + "\n")
-      response.end("Footer\n");
+      renderer.view("error",{errorMessage:error.message},response);
+      renderer.view("search",{},response);
+      renderer.view("footer",{},response);
+      response.end();
     });
-    response.write(username + "\n");
   }
 }
 
